@@ -1,0 +1,54 @@
+{
+  "model": "gpt-4.1-mini",
+  "input": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Hi there"
+        }
+      ]
+    },
+    {
+      "id": "msg_68061d6b11d081928578dd84bced705f0bb86c1e95ac1bc1",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hello! How can I assist you today?"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "I am Nils"
+        }
+      ]
+    },
+    {
+      "id": "msg_68061d720b208192b3d2205c0ad47a0d0bb86c1e95ac1bc1",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hi Nils! Nice to meet you. How can I help you today?"
+        }
+      ]
+    }
+  ],
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "reasoning": {},
+  "tools": [],
+  "temperature": 1,
+  "max_output_tokens": 2048,
+  "top_p": 1,
+  "store": false
+}
