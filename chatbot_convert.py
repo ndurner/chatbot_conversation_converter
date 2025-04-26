@@ -8,58 +8,11 @@ import json
 import sys
 import os
 import argparse
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from datetime import datetime
+from bs4 import BeautifulSoup
 
-class ChatFormatHandler(ABC):
-    """Abstract base class for chat format handlers"""
-    
-    def __init__(self, json_data, file_timestamp=None):
-        self.json_data = json_data
-        self.file_timestamp = file_timestamp
-
-    @classmethod
-    @abstractmethod
-    def can_handle(cls, json_data):
-        """Check if this handler can process the given JSON data"""
-        pass
-
-    def _format_timestamp(self):
-        """Format the file timestamp consistently"""
-        return self.file_timestamp.strftime("%Y-%m-%d %H:%M:%S") if self.file_timestamp else "Unknown"
-
-    def _create_markdown_structure(self, model="unknown", timestamp=None):
-        """Create consistent Markdown document structure with headers"""
-        if timestamp is None:
-            timestamp = self._format_timestamp()
-        markdown = f"# Chat Transcript\n\n## Session Information\n\n"
-        markdown += f"**Model:** {model}\n"
-        markdown += f"**Timestamp:** {timestamp}\n\n"
-        markdown += "## Conversation\n\n"
-        return markdown
-
-    def _format_message(self, role, content):
-        """Format a single message consistently"""
-        if not content:
-            return ""
-        return f"**{role}**: {content}\n\n---\n\n"
-
-    def _format_messages(self, messages):
-        """Format all messages and handle the final separator"""
-        markdown = ""
-        for message in messages:
-            markdown += self._format_message(message["role"], message.get("content", ""))
-        return markdown.rstrip("---\n\n") + "\n"
-
-    @abstractmethod
-    def to_markdown(self):
-        """Convert the chat data to markdown format"""
-        pass
-
-    @abstractmethod
-    def to_workbench(self):
-        """Convert the chat data to workbench format"""
-        pass
+from chat_format_base import ChatFormatHandler
 
 class PlaygroundFormatHandler(ChatFormatHandler):
     """Handler for OpenAI Playground JSON format"""
@@ -112,7 +65,15 @@ class WorkbenchFormatHandler(ChatFormatHandler):
 
 def detect_format(json_data, file_timestamp=None):
     """Automatically detect the format of the input JSON"""
-    handlers = [PlaygroundFormatHandler, WorkbenchFormatHandler]
+    # Import here to avoid circular import
+    from chatgpt_format_handler import ChatGPTFormatHandler
+    
+    handlers = [
+        ChatGPTFormatHandler,
+        PlaygroundFormatHandler,
+        WorkbenchFormatHandler
+    ]
+
     for handler_class in handlers:
         if handler_class.can_handle(json_data):
             return handler_class(json_data, file_timestamp)
@@ -139,10 +100,15 @@ def main():
     try:
         # Get file creation time
         file_timestamp = datetime.fromtimestamp(os.path.getctime(args.input_file))
-        
+
         with open(args.input_file, 'r', encoding='utf-8') as file:
-            json_data = json.load(file)
-        
+            raw = file.read()
+        # Try JSON first; if that fails we keep the raw string
+        try:
+            json_data = json.loads(raw)
+        except json.JSONDecodeError:
+            json_data = raw      # hand the raw HTML string to the detector
+
         # Convert the format
         output_content = convert_format(json_data, args.format, file_timestamp)
         
@@ -162,7 +128,7 @@ def main():
         print(f"Successfully converted to {output_file}")
         
     except json.JSONDecodeError:
-        print("Error: Invalid JSON input", file=sys.stderr)
+        print("Error: Unsupported input format", file=sys.stderr)
         sys.exit(1)
     except FileNotFoundError:
         print(f"Error: File {args.input_file} not found", file=sys.stderr)

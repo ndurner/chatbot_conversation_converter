@@ -4,10 +4,14 @@ A Python utility that converts chat conversations between different formats, inc
 
 ## Features
 
-- Convert OpenAI Playground JSON format to Markdown
-- Convert OpenAI Playground JSON to Nils' Workbench format¹
-- Convert Workbench format to Markdown
-- Automatic format detection
+- Convert between Chatbot data exchange formats
+  - Input formats:
+    - Open AI Prompts Playground
+    - Nils' Workbench format¹
+    - ChatGPT HTML
+  - Output formats:
+    - Markdown
+    - Nils' Workbench format¹
 - Command-line interface
 
 ## Installation
@@ -39,6 +43,7 @@ This will create a new file with the same base name and appropriate extension (`
 
 - OpenAI Prompts Playground Format
 - Workbench Format¹
+- ChatGPT HTML (input)
 
 ## Output
 
@@ -53,13 +58,9 @@ Creates a JSON file in the Workbench format with:
 - Simplified message structure
 - Preserved conversation flow
 
-## Error Handling
-
-The tool includes error handling for:
-- Invalid JSON input
-- File not found
-- Unsupported chat formats
-- UTF-8 encoding issues
+## Restrictions
+- does not include images or file uploads from ChatGPT
+- OpenAI Prompts Playground .json does not include (image) data
 
 ## References
 
