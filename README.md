@@ -1,6 +1,6 @@
 # Chatbot Conversation Converter
 
-A Python utility that converts chat conversations between different formats, including OpenAI Playground JSON, Nils' Workbench format¹ and Markdown.
+A Python utility that converts chat conversations between different formats, including OpenAI Playground JSON, Nils' Workbench format¹ and Markdown. ChatGPT is also supported as a source.
 
 ## Features
 
