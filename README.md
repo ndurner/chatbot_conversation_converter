@@ -21,7 +21,7 @@ Clone this repository and ensure you have Python 3.x installed.
 ## Usage
 
 ```bash
-python json_to_markdown.py input_file [--format {markdown,workbench}]
+python chatbot_convert.py input_file [--format {markdown,workbench}]
 ```
 
 ### Arguments
@@ -34,7 +34,7 @@ python json_to_markdown.py input_file [--format {markdown,workbench}]
 ### Example
 
 ```bash
-python json_to_markdown.py sample_chat.json
+python chatbot_convert.py sample_chat.json
 ```
 
 This will create a new file with the same base name and appropriate extension (`.md` for markdown or `_converted.json` for workbench format).
