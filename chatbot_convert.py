@@ -66,9 +66,11 @@ class WorkbenchFormatHandler(ChatFormatHandler):
 def detect_format(json_data, file_timestamp=None):
     """Automatically detect the format of the input JSON"""
     # Import here to avoid circular import
+    from codex_format_handler import CodexFormatHandler
     from chatgpt_format_handler import ChatGPTFormatHandler
     
     handlers = [
+        CodexFormatHandler,
         ChatGPTFormatHandler,
         PlaygroundFormatHandler,
         WorkbenchFormatHandler
@@ -92,16 +94,34 @@ def convert_format(json_data, output_format, file_timestamp=None):
 
 def main():
     parser = argparse.ArgumentParser(description='Convert chat JSON to different formats')
-    parser.add_argument('input_file', help='Input JSON file')
+    parser.add_argument(
+        'input_spec',
+        help='Input file path, Codex session/thread ID, or codex://threads/<id> URL',
+    )
     parser.add_argument('--format', choices=['markdown', 'workbench'], default='markdown',
                       help='Output format (markdown or workbench)')
     args = parser.parse_args()
 
     try:
-        # Get file creation time
-        file_timestamp = datetime.fromtimestamp(os.path.getctime(args.input_file))
+        from codex_format_handler import CodexFormatHandler
 
-        with open(args.input_file, 'r', encoding='utf-8') as file:
+        codex_resolved = CodexFormatHandler.resolve_input_spec(args.input_spec)
+        if codex_resolved:
+            input_path = codex_resolved["resolved_path"]
+            codex_session_id = codex_resolved["codex_session_id"]
+        elif os.path.isfile(args.input_spec):
+            input_path = args.input_spec
+            codex_session_id = None
+        else:
+            raise FileNotFoundError(
+                f"Input not found or unsupported spec: {args.input_spec}. "
+                "Use a file path, a Codex session/thread ID, or codex://threads/<id>."
+            )
+
+        # Get file creation time
+        file_timestamp = datetime.fromtimestamp(os.path.getctime(input_path))
+
+        with open(input_path, 'r', encoding='utf-8') as file:
             raw = file.read()
         # Try JSON first; if that fails we keep the raw string
         try:
@@ -113,7 +133,11 @@ def main():
         output_content = convert_format(json_data, args.format, file_timestamp)
         
         # Generate output filename with appropriate extension
-        base_name = os.path.splitext(args.input_file)[0]
+        if codex_session_id:
+            base_name = CodexFormatHandler.build_output_base_name(codex_session_id, os.getcwd())
+        else:
+            base_name = os.path.splitext(input_path)[0]
+
         if args.format == 'markdown':
             output_file = f"{base_name}.md"
             final_output = output_content
@@ -131,7 +155,7 @@ def main():
         print("Error: Unsupported input format", file=sys.stderr)
         sys.exit(1)
     except FileNotFoundError:
-        print(f"Error: File {args.input_file} not found", file=sys.stderr)
+        print(f"Error: File {args.input_spec} not found", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)
