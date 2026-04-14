@@ -173,9 +173,15 @@ class ChatGPTFormatHandler(ChatFormatHandler):
     # ---------- detection --------------------------------------------------
     @classmethod
     def can_handle(cls, data):
-        return (isinstance(data, str)
-                and "<article" in data
-                and "data-message-author-role" in data)
+        return (
+            isinstance(data, str)
+            and "data-message-author-role" in data
+            and (
+                "<article" in data
+                or 'class="markdown' in data
+                or 'data-testid="conversation-turn-' in data
+            )
+        )
 
     # ---------- extraction -------------------------------------------------
     def _extract_messages(self, html: str) -> List[Dict[str, str]]:

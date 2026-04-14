@@ -9,6 +9,7 @@ import sys
 import os
 import argparse
 from abc import abstractmethod
+from collections.abc import Mapping
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -19,7 +20,7 @@ class PlaygroundFormatHandler(ChatFormatHandler):
 
     @classmethod
     def can_handle(cls, json_data):
-        return "input" in json_data
+        return isinstance(json_data, Mapping) and "input" in json_data
 
     def to_markdown(self):
         model = self.json_data.get("model", "unknown")        
@@ -53,7 +54,7 @@ class WorkbenchFormatHandler(ChatFormatHandler):
 
     @classmethod
     def can_handle(cls, json_data):
-        return "messages" in json_data
+        return isinstance(json_data, Mapping) and "messages" in json_data
 
     def to_markdown(self):
         markdown = self._create_markdown_structure()
