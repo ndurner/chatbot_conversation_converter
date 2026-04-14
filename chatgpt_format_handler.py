@@ -191,20 +191,34 @@ class ChatGPTFormatHandler(ChatFormatHandler):
 
         for n in soup.find_all(attrs={"data-message-author-role": True}):
             role_raw = n["data-message-author-role"].lower()
-            role = "assistant" if role_raw == "assistant" else "user"
+            if role_raw == "assistant":
+                is_thinking = n.get("data-turn-start-message") != "true"
+                role = "assistant - thinking" if is_thinking else "assistant"
+            else:
+                role = "user"
 
             # assistant messages – use the dedicated .markdown div if present
             md_container = n.find(class_="markdown")
             if md_container:
                 content = h2md.convert(md_container).strip()
             else:
-                # user messages:
+                # user messages: collect file attachment tiles first, then text
+                file_refs = []
+                for tile in n.find_all(attrs={"role": "group"}):
+                    label = tile.get("aria-label")
+                    if label:
+                        file_refs.append(f"![{label}]({label})")
+                    tile.decompose()
+
                 #  - if it *contains* a <pre> / <code> (or table …) we need full MD conversion
                 #  - otherwise plain visible text is fine
                 if n.find(["pre", "code", "table", "blockquote", "ul", "ol"]):
                     content = h2md.convert(n).strip()
                 else:
                     content = n.get_text(" ", strip=True)
+
+                if file_refs:
+                    content = "\n".join(file_refs) + "\n\n" + content
 
             if content:
                 messages.append({"role": role, "content": content})
