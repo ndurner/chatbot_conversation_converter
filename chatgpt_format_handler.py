@@ -7,8 +7,7 @@ Workbench-style message dicts or clean Markdown (incl. code blocks).
 """
 
 import re
-from abc import ABC
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
@@ -49,6 +48,8 @@ class _HTML2MD:
             return ""
 
         name = node.name.lower()
+        if name in ("button", "script", "style", "svg") or node.has_attr("hidden"):
+            return ""
 
         # ---------- block level ----------
         if name == "p":
@@ -58,7 +59,7 @@ class _HTML2MD:
         if name in ("h1", "h2", "h3", "h4", "h5", "h6"):
             lvl = int(name[1])
             return "#" * lvl + " " + self._children_md(node).strip() + "\n\n"
-        if name == "hr":
+        if name == "hr" or node.get("data-d-component") == "divider":
             return "\n---\n\n"
         if name == "blockquote":
             inner = self._children_md(node).strip().splitlines()
@@ -84,9 +85,9 @@ class _HTML2MD:
             return self._pre_to_md(node)
 
         # ---------- inline ----------
-        if name == "strong":
+        if name == "strong" or node.has_attr("data-d-default-strong"):
             return f"**{self._children_md(node).strip()}**"
-        if name == "em":
+        if name == "em" or node.get("data-d-font-style") == "italic":
             return f"*{self._children_md(node).strip()}*"
         if name == "del":
             return f"~~{self._children_md(node).strip()}~~"
@@ -168,20 +169,20 @@ class _HTML2MD:
 #                         ChatGPTFormatHandler
 # ────────────────────────────────────────────────────────────────────────────
 class ChatGPTFormatHandler(ChatFormatHandler):
-    """Handles raw ChatGPT chat-page HTML."""
+    """Handles HTML saved from the current ChatGPT web UI."""
+
+    # Use semantic attributes rather than generated CSS class names.
+    _MESSAGE_SELECTOR = (
+        '[data-user-message-bubble], '
+        '[data-markdown-text-style="assistant-message"]'
+    )
 
     # ---------- detection --------------------------------------------------
     @classmethod
     def can_handle(cls, data):
-        return (
-            isinstance(data, str)
-            and "data-message-author-role" in data
-            and (
-                "<article" in data
-                or 'class="markdown' in data
-                or 'data-testid="conversation-turn-' in data
-            )
-        )
+        if not isinstance(data, str):
+            return False
+        return BeautifulSoup(data, "html.parser").select_one(cls._MESSAGE_SELECTOR) is not None
 
     # ---------- extraction -------------------------------------------------
     def _extract_messages(self, html: str) -> List[Dict[str, str]]:
@@ -189,36 +190,12 @@ class ChatGPTFormatHandler(ChatFormatHandler):
         h2md = _HTML2MD()
         messages: List[Dict[str, str]] = []
 
-        for n in soup.find_all(attrs={"data-message-author-role": True}):
-            role_raw = n["data-message-author-role"].lower()
-            if role_raw == "assistant":
-                is_thinking = n.get("data-turn-start-message") != "true"
-                role = "assistant - thinking" if is_thinking else "assistant"
-            else:
-                role = "user"
-
-            # assistant messages – use the dedicated .markdown div if present
-            md_container = n.find(class_="markdown")
-            if md_container:
-                content = h2md.convert(md_container).strip()
-            else:
-                # user messages: collect file attachment tiles first, then text
-                file_refs = []
-                for tile in n.find_all(attrs={"role": "group"}):
-                    label = tile.get("aria-label")
-                    if label:
-                        file_refs.append(f"![{label}]({label})")
-                    tile.decompose()
-
-                #  - if it *contains* a <pre> / <code> (or table …) we need full MD conversion
-                #  - otherwise plain visible text is fine
-                if n.find(["pre", "code", "table", "blockquote", "ul", "ol"]):
-                    content = h2md.convert(n).strip()
-                else:
-                    content = n.get_text(" ", strip=True)
-
-                if file_refs:
-                    content = "\n".join(file_refs) + "\n\n" + content
+        for n in soup.select(self._MESSAGE_SELECTOR):
+            role = "user" if n.has_attr("data-user-message-bubble") else "assistant"
+            # Rich-text user messages have a dedicated content root inside
+            # the bubble; plain-text bubbles and assistant roots convert directly.
+            content_root = n.select_one('[data-markdown-text-tone="user-message"]') or n
+            content = h2md.convert(content_root)
 
             if content:
                 messages.append({"role": role, "content": content})
